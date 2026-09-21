@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using PHYSXR.Core.Data;
 using PHYSXR.Core.Enums;
 using PHYSXR.Decision;
@@ -43,6 +45,7 @@ namespace PHYSXR.Testing
             Run("PDC-04_Reset_ClearsTemporalContextOnly", Test_PDC04);
             Run("PDC-05_TemporalContextTracking_DoesNotChangeDecisionOutput", Test_PDC05);
             Run("PDC-06_TwoProviders_DoNotShareTemporalContext", Test_PDC06);
+            Run("PDC-07_IdenticalWorldStateSequenceWithDisturbanceEdges_ProducesIdenticalContextAndOutput", Test_PDC07);
 
             Console.WriteLine(string.Format("Total: {0}, Passed: {1}, Failed: {2}", passed + failed, passed, failed));
             return failed;
@@ -185,6 +188,42 @@ namespace PHYSXR.Testing
             AssertTrue(providerA.TemporalContext.PreviousAction.HasValue, "expected providerA's temporal context to be populated");
             AssertTrue(!providerB.TemporalContext.PreviousAction.HasValue, "expected providerB's temporal context to be unaffected by providerA");
             AssertTrue(providerB.TemporalContext.RecentEventTimestamps.Count == 0, "expected providerB's recent-event window to be unaffected by providerA");
+        }
+
+        // G. Determinism (end-to-end, through Decide()): the same initial
+        // provider state + the same WorldState/timestamp sequence -
+        // including disturbance rising and falling edges - must produce
+        // an identical GhostAction sequence AND an identical resulting
+        // temporal context on two independent providers.
+        private static void Test_PDC07()
+        {
+            var providerA = NewProvider();
+            var providerB = NewProvider();
+
+            WorldState[] sequence =
+            {
+                BuildState(timestamp: 10L, disturbance: false),
+                BuildState(presence: PresenceLevel.NONE, disturbance: true, timestamp: 20L),  // rising edge
+                BuildState(presence: PresenceLevel.NONE, disturbance: true, timestamp: 30L),  // sustained (no new edge)
+                BuildState(disturbance: false, timestamp: 40L),
+                BuildState(presence: PresenceLevel.NEAR, confidence: ConfidenceLevel.LOW, timestamp: 50L),
+                BuildState(disturbance: true, timestamp: 60L)                                  // second rising edge
+            };
+
+            List<GhostAction> resultsA = sequence.Select(providerA.Decide).ToList();
+            List<GhostAction> resultsB = sequence.Select(providerB.Decide).ToList();
+
+            AssertTrue(resultsA.SequenceEqual(resultsB), "expected an identical WorldState/timestamp sequence to produce an identical GhostAction sequence across independent providers");
+
+            AssertTrue(providerA.TemporalContext.PreviousAction == providerB.TemporalContext.PreviousAction, "expected identical previous action across independent providers");
+            AssertTrue(providerA.TemporalContext.TimeInCurrentAction(100L) == providerB.TemporalContext.TimeInCurrentAction(100L), "expected identical time-in-state across independent providers");
+            AssertTrue(providerA.TemporalContext.TimeSinceLastEvent(100L) == providerB.TemporalContext.TimeSinceLastEvent(100L), "expected identical time-since-event across independent providers");
+            AssertTrue(providerA.TemporalContext.RecentEventTimestamps.SequenceEqual(providerB.TemporalContext.RecentEventTimestamps), "expected identical recent-event windows across independent providers");
+
+            // Sanity: the sustained sample at t=30 must NOT have produced
+            // a second occurrence - exactly two rising edges (20, 60)
+            // should be in the window.
+            AssertTrue(providerA.TemporalContext.RecentEventTimestamps.SequenceEqual(new long[] { 20L, 60L }), "expected exactly the two rising-edge occurrences (20, 60), with the sustained sample at 30 not double-counted");
         }
     }
 }

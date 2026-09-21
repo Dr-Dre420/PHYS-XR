@@ -128,9 +128,15 @@ namespace PHYSXR.Decision
             // caller/test on every WorldState, so no new parameter or
             // clock abstraction is needed to keep Decide(WorldState)
             // deterministic and interface-frozen.
+            //
+            // disturbanceActive is the raw, continuously-sampled
+            // condition for this tick - DecisionHistory itself performs
+            // false->true rising-edge detection so one sustained
+            // disturbance isn't miscounted as several distinct
+            // occurrences (see DecisionHistory for the full rationale).
             long timestamp = state?.physical?.timestamp ?? 0L;
-            bool relevantEvent = state?.physical?.disturbance ?? false;
-            temporalContext.Update(action, timestamp, relevantEvent);
+            bool disturbanceActive = state?.physical?.disturbance ?? false;
+            temporalContext.Update(action, timestamp, disturbanceActive);
 
             return action;
         }
