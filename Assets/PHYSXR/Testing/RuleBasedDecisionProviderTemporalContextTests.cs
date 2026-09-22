@@ -93,7 +93,12 @@ namespace PHYSXR.Testing
 
         private static RuleBasedDecisionProvider NewProvider()
         {
-            return new RuleBasedDecisionProvider(ElevatedThreatThreshold, CriticalThreatThreshold);
+            // minimumActionDwellMs: 0 - this suite tests temporal-context
+            // wiring (DecisionHistory recording/reset/independence), not
+            // hysteresis (see RuleBasedDecisionProviderHysteresisTests
+            // for that). 0 is the hysteresis design's own documented
+            // compatibility mode, not a special case invented here.
+            return new RuleBasedDecisionProvider(ElevatedThreatThreshold, CriticalThreatThreshold, minimumActionDwellMs: 0L);
         }
 
         private static void Test_PDC01()
