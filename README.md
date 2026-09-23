@@ -66,7 +66,7 @@ flowchart TD
         GAE[GhostActionExecutor]
         GBC[GhostBehaviourController]
         GRP[GhostRuntimePipeline]
-        GR[GhostRuntime - MonoBehaviour]
+        GR["GhostRuntime (MonoBehaviour)"]
         GVC[GhostVisualController]
         GVB[GhostVisualBinding]
     end
@@ -75,19 +75,21 @@ flowchart TD
         SINK[InMemoryTelemetrySink]
     end
 
-    UDP -->|raw bytes| PIPE
-    PIPE --> PV --> PSP
+    UDP --> PIPE
+    PIPE --> PV
+    PV --> PSP
     PIPE --> PSM
     PIPE --> PEM
     PSM --> WSM
-    WSM -->|WorldState| RBDP
-    RBDP <--> DH
-    RBDP -->|GhostAction + reason| GRP
-    GRP --> GAE -->|GhostExecutionState| GRP
+    WSM --> RBDP
+    RBDP --> DH
+    RBDP --> GRP
+    GRP --> GAE
     GRP --> GBC
-    GRP -.optional.-> SINK
+    GRP --> SINK
     GR --> GRP
-    GR -->|CurrentState| GVB --> GVC
+    GR --> GVB
+    GVB --> GVC
 
     style Physical fill:#1e293b,color:#fff
     style Comm fill:#1e293b,color:#fff
